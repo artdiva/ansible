@@ -1,0 +1,95 @@
+---
+- hosts: localhost
+  tasks:
+   - name: empty the log file initial run
+     shell: echo > /var/log/ansible.log
+
+- hosts: oracle-db
+  tasks:
+
+  - name: CHECK DATE
+    shell: |
+     echo ===========DATE===========
+     echo
+     date
+    register: date
+
+  - name: DATE
+    debug:
+     msg: "{{ date.stdout_lines }}"
+
+  - name: CHECK DISK USAGE
+    shell: |
+     echo =========================DISK USAGE=========================
+     echo
+     df -h
+    register: disk
+
+  - name: DISK USAGE
+    debug:
+     msg: "{{ disk.stdout_lines }}"
+
+  - name: CHECK LATEST BACKUP
+    shell: |
+     echo =====LATEST BACKUP FILE=====
+     echo
+     cd /oracle/bkup/exp_bkup
+     ls -t | head -n1
+     echo
+     echo =======BACKUP STATUS=======
+     echo
+     cd /oracle/bkup/log
+     tail -1 `ls -t | head -1`
+    register: backup
+
+  - name: LATEST BACKUP
+    debug:
+     msg: "{{ backup.stdout_lines }}"
+
+  - name: CHECK LISTENER
+    shell: |
+     echo =====================LISTENER STATUS=====================
+     su - oracle -c '/oracle/product/121/bin/lsnrctl status'
+    register: listener
+
+  - name: ORACLE LISTENER STATUS
+    debug:
+      msg: "{{ listener.stdout_lines }}"
+
+  - name: CHECK ORACLE PROCESS
+    shell: |
+     echo =====================ORACLE PROCESS=====================
+     echo
+     su - oracle -c 'ps -ef |grep ora_'
+    register: process
+
+  - name: ORACLE PROCESS
+    debug:
+     msg: "{{ process.stdout_lines }}"
+
+- hosts: localhost
+  tasks:
+
+  - name: edit log #cutting line 1-8
+    shell: sed -i '1,8d' /var/log/ansible.log
+
+  - name: logs result
+    shell: sed '/PLAY RECAP/,$p' /var/log/ansible.log
+    args:
+     warn: false
+    register: command_log
+
+  - name: send email to sysadmin/DBA
+    mail:
+     host: mail-host
+     port: 25
+     sender: Ansible
+     to: artdiva@indonesian-aerospace.com
+     subject: ORACLE SERVER DAILY CHECK
+     body: "{{ command_log.stdout }}"
+    when: command_log.stdout
+    
+
+  - name: empty the log file post run
+    shell: echo > /var/log/ansible.log
+
