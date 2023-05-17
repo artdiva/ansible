@@ -1,0 +1,79 @@
+---
+- hosts: localhost
+  tasks:
+   - name: empty the log file initial run
+     shell: echo > /var/log/ansible.log
+
+- hosts: postgres-db
+  tasks:
+
+  - name: CHECK DATE
+    shell: |
+     echo ===========DATE===========
+     echo
+     date
+    register: date
+
+  - name: DATE
+    debug:
+     msg: "{{ date.stdout_lines }}"
+
+  - name: CHECK DISK USAGE
+    shell: |
+     echo =========================DISK USAGE=========================
+     echo
+     df -h
+    register: disk
+
+  - name: DISK USAGE
+    debug:
+     msg: "{{ disk.stdout_lines }}"
+
+  - name: CHECK LATEST BACKUP
+    shell: |
+     echo =====LATEST BACKUP FILE=====
+     echo
+     cd /postgres/backup
+     ls -t | head -n1
+     echo
+     echo ==============BACKUP STATUS==============
+     echo
+     cd /postgres/backup/log
+     tail -20 `ls -t | head -1`
+    register: backup
+
+  - name: CHECK POSTGRES PROCESS
+    shell: |
+     echo =====================POSTGRES PROCESS=====================
+     echo
+     su - postgres -c 'ps -ef |grep process'
+    register: process
+
+  - name: POSTGRES PROCESS
+    debug:
+     msg: "{{ process.stdout_lines }}"
+
+- hosts: localhost
+  tasks:
+
+  - name: edit log
+    shell: sed -i '1,8d' /var/log/ansible.log
+
+  - name: logs result
+    shell: sed '/PLAY RECAP/,$p' /var/log/ansible.log
+    args:
+     warn: false
+    register: command_log
+
+  - name: send email to sysadmin
+    mail:
+     host: mail-host
+     port: 25
+     sender: Ansible
+     to: artdiva@indonesian-aerospace.com
+     subject: POSTGRES SERVER DAILY CHECK
+     body: "{{ command_log.stdout }}"
+    when: command_log.stdout
+
+  - name: empty the log file post run
+    shell: echo > /var/log/ansible.log
