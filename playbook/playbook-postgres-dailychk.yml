@@ -42,6 +42,17 @@
      tail -20 `ls -t | head -1`
     register: backup
 
+  - name: CHECK POSTGRES STATUS
+    shell: |
+     echo =====================POSTGRES STATUS=====================
+     echo
+     su - postgres -c 'pg_ctl status'
+    register: status
+
+  - name: POSTGRES STATUS
+    debug:
+     msg: "{{ status.stdout_lines }}"
+
   - name: CHECK POSTGRES PROCESS
     shell: |
      echo =====================POSTGRES PROCESS=====================
